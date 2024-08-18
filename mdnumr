@@ -1,0 +1,164 @@
+#!/usr/bin/env perl
+
+use warnings;
+use strict;
+use 5.022;
+
+use Getopt::Long qw/:config no_ignore_case no_auto_abbrev/;
+use File::Basename qw/fileparse/;
+use Fcntl qw/SEEK_END SEEK_CUR/;
+use List::Util qw/all/;
+use Pod::Usage;
+
+# Main
+my %argv_parsed = &parse_arguments();
+my @argv        = @ARGV;
+
+my (
+	$zero_based, 
+	$backup_enabled, 
+	$range_ref,
+) = @argv_parsed{qw/zero_based backup_enabled range/};
+
+my $max_num      = 6;
+my $init_num     = !$zero_based - 1;
+my @nums         = map { my $num = $_; (grep { $_ == $num } @$range_ref) ? $init_num : undef } (0 .. $max_num);
+my $mark_comment = '<!-- This line is appended by mdnumr. Do NOT remove or edit it, and do NOT work below it -->';
+
+$^I = $backup_enabled ? '.bak' : '';
+
+foreach (@argv) {
+	my $file_name = $_;
+	my $last_line = &trim(&read_last_line($file_name));
+	my $is_marked = $last_line eq $mark_comment;
+
+	@ARGV = $file_name;
+
+	while (<<>>) {
+		unless (/^(?<pre_space> {0,3})(?<hash>#{1,6})(?<title>.+)/) {
+			print;
+			next;
+		}
+
+		my ($pre_space, $hash, $title) = @+{qw/pre_space hash title/};
+
+		$title =~ s/^ +(\d*\.){1,6}// if $is_marked;
+
+		my $sharp_len            = length $hash;
+		my @head_number_interim  = ();
+
+		unless (defined $nums[$sharp_len]) {
+			say "$pre_space$hash$title";
+			next;
+		}
+
+		foreach ($sharp_len + 1 .. $#nums) {
+			last unless defined $nums[$_];
+			$nums[$_] = $init_num;
+		}
+
+		$nums[$sharp_len]++;
+
+
+		while (my ($i, $v) = each @nums) {
+			if ($i <= $sharp_len && defined $v) {
+				push(@head_number_interim, $v <= $init_num ? '' : $v);
+			}
+		}
+
+		say "$pre_space$hash " . (join '.', @head_number_interim) . ".$title";
+	}
+
+	unless ($is_marked) {
+		open FILE, '>>', $file_name;
+		say FILE $mark_comment;
+		close FILE;
+	}
+}
+
+exit 0 unless $backup_enabled;
+
+foreach (map { "$_$^I" } @argv) {
+	my ($name, $path) = fileparse $_;
+
+	rename "$path$name", "$path.$name";
+}
+
+# Subroutines
+sub parse_arguments {
+	my @counts = (0, 0, 0);
+	my %result = (zero_based => 0, backup_enabled => 0, range => '1-6');
+	my $getopt_result = GetOptions
+		'r|range=s'   => sub { $counts[0]++; $result{range} = $_[1] },
+		'z|set-zero!' => sub { $counts[1]++; $result{zero_based} = 1 },
+		'b|backup!'   => sub { $counts[2]++; $result{backup_enabled} = 1 },
+		'v|version'   => sub {},
+		'h|help'      => sub {},
+		'm|man'       => sub {};
+
+	$result{range} = [&parse_range($result{range})];
+	
+	die "no target files were provided\n" unless @ARGV;	
+	die "illegal options were provided\n" unless all { $_ == 0 || $_ == 1 } @counts;
+	die "invalid range specified\n" unless @{$result{range}};
+
+	%result
+}
+
+sub parse_range {
+	return undef unless wantarray;
+
+	$_[0] =~ /^(?<start>[1-6])-(?<end>[1-6])$/ && $+{start} <= $+{end} ? ($+{start}..$+{end}) : ()
+}
+
+sub trim {
+	my @result = ();
+
+	foreach (@_) {
+		my $elem = $_;
+
+		$elem =~ s/^\s+|\s+$//g;
+		push @result, $elem;
+	}
+
+	return @result if wantarray;
+
+	@result ? $result[0] : undef
+}
+
+sub read_last_line {
+	my $result;
+	my $char;
+	my $idx;
+
+	open FILE, '<', $_[0];
+	seek FILE, 0, SEEK_END;
+
+	my $end_idx     = tell FILE;
+	my $real_length = 0;
+
+	while (1) {
+		read FILE, $char, 1;
+
+		$real_length += $char =~ /[^\s]/;
+
+		if ($char eq "\n") {
+			last if $end_idx - ($idx = (tell) - 1) > 0 && $real_length > 0;
+
+			$end_idx = $idx;
+		}
+
+		seek FILE, -2, SEEK_CUR;
+
+		if ((tell) == 0) {
+			$idx = 0;
+			last;
+		}
+	}
+
+	read FILE, $result, $end_idx - $idx;
+	close FILE;
+
+	$result
+}
+
