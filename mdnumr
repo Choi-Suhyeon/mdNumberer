@@ -28,19 +28,22 @@ my $mark_comment = '<!-- This line is appended by mdnumr. Do NOT remove or edit 
 $^I = $backup_enabled ? '.bak' : '';
 
 foreach (@argv) {
-	my $file_name = $_;
-	my $last_line = &trim(&read_last_line($file_name));
-	my $is_marked = $last_line eq $mark_comment;
+	my $file_name  = $_;
+	my $last_line  = &trim(&read_last_line($file_name));
+	my $is_marked  = $last_line eq $mark_comment;
+	my $is_in_code = 0;
 
 	@ARGV = $file_name;
 
 	while (<<>>) {
-		unless (/^(?<pre_space> {0,3})(?<hash>#{1,6})(?<title>.+)/) {
+		$is_in_code = ! $is_in_code if /^```/;
+
+		if ($is_in_code || ! /^( {0,3})(#{1,6})(.+)/) {
 			print;
 			next;
 		}
 
-		my ($pre_space, $hash, $title) = @+{qw/pre_space hash title/};
+		my ($pre_space, $hash, $title) = ($1, $2, $3);
 
 		$title =~ s/^ +(\d*\.){1,6}// if $is_marked;
 
@@ -48,7 +51,7 @@ foreach (@argv) {
 		my @head_number_interim  = ();
 
 		unless (defined $nums[$sharp_len]) {
-			say "$pre_space$hash$title";
+			say $pre_space . $hash . $title;
 			next;
 		}
 
@@ -108,7 +111,7 @@ sub parse_arguments {
 sub parse_range {
 	return undef unless wantarray;
 
-	$_[0] =~ /^(?<start>[1-6])-(?<end>[1-6])$/ && $+{start} <= $+{end} ? ($+{start}..$+{end}) : ()
+	$_[0] =~ /^([1-6])-([1-6])$/ && $1 <= $2 ? ($1 .. $2) : ()
 }
 
 sub trim {
