@@ -10,6 +10,11 @@ use Fcntl qw/SEEK_END SEEK_CUR/;
 use List::Util qw/all/;
 use Pod::Usage;
 
+# Global Constants
+my $mark_comment  = '<!-- This line is appended by mdnumr. Do NOT remove or edit it, and do NOT work below it -->';
+my $pod_file_name = 'mdnumr.pod';
+my $max_num       = 6;
+
 # Main
 my %argv_parsed = &parse_arguments();
 my @argv        = @ARGV;
@@ -20,15 +25,12 @@ my (
 	$range_ref,
 ) = @argv_parsed{qw/zero_based backup_enabled range/};
 
-my $max_num      = 6;
 my $init_num     = !$zero_based - 1;
-my @nums         = map { my $num = $_; (grep { $_ == $num } @$range_ref) ? $init_num : undef } (0 .. $max_num);
-my $mark_comment = '<!-- This line is appended by mdnumr. Do NOT remove or edit it, and do NOT work below it -->';
+my @nums         = map { my $num = $_; (grep $_ == $num, @$range_ref) ? $init_num : undef } (0 .. $max_num);
 
 $^I = $backup_enabled ? '.bak' : '';
 
-foreach (@argv) {
-	my $file_name  = $_;
+foreach my $file_name (@argv) {
 	my $last_line  = &trim(&read_last_line($file_name));
 	my $is_marked  = $last_line eq $mark_comment;
 	my $is_in_code = 0;
@@ -44,28 +46,26 @@ foreach (@argv) {
 		}
 
 		my ($pre_space, $hash, $title) = ($1, $2, $3);
+		my $sharp_len                  = length $hash;
+		my @head_number_interim        = ();
 
 		$title =~ s/^ +(\d*\.){1,6}// if $is_marked;
-
-		my $sharp_len            = length $hash;
-		my @head_number_interim  = ();
 
 		unless (defined $nums[$sharp_len]) {
 			say $pre_space . $hash . $title;
 			next;
 		}
 
+		$nums[$sharp_len]++;
+
 		foreach ($sharp_len + 1 .. $#nums) {
 			last unless defined $nums[$_];
 			$nums[$_] = $init_num;
 		}
 
-		$nums[$sharp_len]++;
-
-
 		while (my ($i, $v) = each @nums) {
 			if ($i <= $sharp_len && defined $v) {
-				push(@head_number_interim, $v <= $init_num ? '' : $v);
+				push @head_number_interim, $v <= $init_num ? '' : $v;
 			}
 		}
 
@@ -95,9 +95,9 @@ sub parse_arguments {
 		'r|range=s'   => sub { $counts[0]++; $result{range} = $_[1] },
 		'z|set-zero!' => sub { $counts[1]++; $result{zero_based} = 1 },
 		'b|backup!'   => sub { $counts[2]++; $result{backup_enabled} = 1 },
-		'v|version'   => sub {},
-		'h|help'      => sub {},
-		'm|man'       => sub {};
+		'v|version'   => sub { pod2usage(-verbose => 99, -sections => 'NAME|VERSION', -exitval => 0, -input => $pod_file_name) },
+		'h|help'      => sub { pod2usage(-verbose => 1, -input => $pod_file_name) },
+		'm|man'       => sub { pod2usage(-verbose => 2, -input => $pod_file_name) };
 
 	$result{range} = [&parse_range($result{range})];
 	
