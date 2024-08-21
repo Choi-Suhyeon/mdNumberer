@@ -30,3 +30,7 @@ Options:
 If the **--backup** option is enabled, a backup of each processed file is created with a '.bak' extension. The script also ensures that the numeric prefixes do not interfere with existing content by carefully managing the numbering and avoiding modification of code blocks.
 
 Additionally, the script appends a comment marker to the end of each file to prevent re-processing of files that have already been numbered.
+
+# LICENSE
+
+This project is licensed under the GNU General Public License v3.0
