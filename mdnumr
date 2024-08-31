@@ -18,11 +18,13 @@ use Getopt::Long qw/:config no_ignore_case no_auto_abbrev/;
 use File::Basename qw/fileparse/;
 use Fcntl qw/SEEK_END SEEK_CUR/;
 use List::Util qw/all/;
+use File::Spec;
 use Pod::Usage;
+use FindBin;
 
 # Global Constants
 my $mark_comment  = '<!-- This line is appended by mdnumr. Do NOT remove or edit it, and do NOT work below it -->';
-my $pod_file_name = 'mdnumr.pod';
+my $pod_file_name = File::Spec->catfile($FindBin::RealBin, 'mdnumr.pod');
 my $max_num       = 6;
 
 # Main
@@ -37,10 +39,17 @@ my (
 
 my $init_num     = !$zero_based - 1;
 my @nums         = map { my $num = $_; (grep $_ == $num, @$range_ref) ? $init_num : undef } (0 .. $max_num);
+my %files_failed = ();
 
 $^I = $backup_enabled ? '.bak' : '';
 
 foreach my $file_name (@argv) {
+	unless (-f -s -r -w $file_name) {
+		warn "$file_name : either the file does not exist, is not a regular file, or lacks read/write permissions.\n";
+		$files_failed{$file_name} = $file_name;
+		next;
+	}
+
 	my $last_line  = &trim(&read_last_line($file_name));
 	my $is_marked  = $last_line eq $mark_comment;
 	my $is_in_code = 0;
@@ -91,10 +100,10 @@ foreach my $file_name (@argv) {
 
 exit 0 unless $backup_enabled;
 
-foreach (map { "$_$^I" } @argv) {
+foreach (map { "$_$^I" } grep { ! exists $files_failed{$_} } @argv) {
 	my ($name, $path) = fileparse $_;
 
-	rename "$path$name", "$path.$name";
+	rename "$path$name", "$path.$name" if -s $_;
 }
 
 # Subroutines
