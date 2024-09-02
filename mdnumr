@@ -112,8 +112,8 @@ sub parse_arguments {
 	my %result = (zero_based => 0, backup_enabled => 0, range => '1-6');
 	my $getopt_result = GetOptions
 		'r|range=s'   => sub { $counts[0]++; $result{range} = $_[1] },
-		'z|set-zero!' => sub { $counts[1]++; $result{zero_based} = 1 },
-		'b|backup!'   => sub { $counts[2]++; $result{backup_enabled} = 1 },
+		'z|set-zero'  => sub { $counts[1]++; $result{zero_based} = 1 },
+		'b|backup'    => sub { $counts[2]++; $result{backup_enabled} = 1 },
 		'v|version'   => sub { pod2usage(-verbose => 99, -sections => 'NAME|VERSION', -exitval => 0, -input => $pod_file_name) },
 		'h|help'      => sub { pod2usage(-verbose => 1, -input => $pod_file_name) },
 		'm|man'       => sub { pod2usage(-verbose => 2, -input => $pod_file_name) };

@@ -4,7 +4,7 @@ mdnumr - A Perl script to add numbering to markdown headers and manage backup fi
 
 # VERSION
 
-0.0.0 (2024.08.20.)
+0.0.1 (2024.09.01.)
 
 # SYNOPSIS
 
