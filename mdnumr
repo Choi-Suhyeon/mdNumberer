@@ -43,7 +43,7 @@ my %files_failed = ();
 
 $^I = $backup_enabled ? '.bak' : '';
 
-foreach my $file_name (@argv) {
+for my $file_name (@argv) {
 	unless (-f -s -r -w $file_name) {
 		warn "$file_name : either the file does not exist, is not a regular file, or lacks read/write permissions.\n";
 		$files_failed{$file_name} = $file_name;
@@ -77,7 +77,7 @@ foreach my $file_name (@argv) {
 
 		$nums[$sharp_len]++;
 
-		foreach ($sharp_len + 1 .. $#nums) {
+		for ($sharp_len + 1 .. $#nums) {
 			last unless defined $nums[$_];
 			$nums[$_] = $init_num;
 		}
@@ -100,7 +100,7 @@ foreach my $file_name (@argv) {
 
 exit 0 unless $backup_enabled;
 
-foreach (map { "$_$^I" } grep { ! exists $files_failed{$_} } @argv) {
+for (map { "$_$^I" } grep { ! exists $files_failed{$_} } @argv) {
 	my ($name, $path) = fileparse $_;
 
 	rename "$path$name", "$path.$name" if -s $_;
@@ -136,16 +136,11 @@ sub parse_range {
 sub trim {
 	my @result = ();
 
-	foreach (@_) {
-		my $elem = $_;
+	push @result, s/^\s+|\s+$//gr for (@_);
 
-		$elem =~ s/^\s+|\s+$//g;
-		push @result, $elem;
-	}
-
-	return @result if wantarray;
-
-	@result ? $result[0] : undef
+	wantarray ? @result    :
+	@result   ? $result[0] :
+	undef
 }
 
 sub read_last_line {
